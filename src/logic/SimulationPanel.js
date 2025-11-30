@@ -21,6 +21,7 @@ export class SimulationPanel {
         this.cells = new Map();
         this.knightMesh = null;
         this.trailPoints = [];
+        this.pathHistory = []
         this.trailLine = null;
         this.separation = 0;
 
@@ -41,6 +42,7 @@ export class SimulationPanel {
         this.group.clear();
         this.cells.clear();
         this.trailPoints = [];
+        this.pathHistory = [];
 
         // Grid
         const [w, l, h] = this.dims;
@@ -79,6 +81,7 @@ export class SimulationPanel {
 
     updateSeparation(val) {
         this.separation = val;
+        
         this.cells.forEach((mesh, key) => {
             const [x,y,z] = mesh.userData.gridPos;
             mesh.position.copy(this.getWorldPos(x,y,z));
@@ -86,6 +89,9 @@ export class SimulationPanel {
         
         const curr = this.knightMesh.userData.lastLogicPos || [0,0,0];
         this.updateKnightPos(...curr);
+
+        this.trailPoints = this.pathHistory.map(pos => this.getWorldPos(pos[0], pos[1], pos[2]));
+        this.updateTrailGeometry();
     }
 
     update(eventType, pos, step) {
@@ -100,6 +106,7 @@ export class SimulationPanel {
                 cell.material = this.activeMat;
                 cell.scale.set(0.9, 0.9, 0.9);
             }
+            this.pathHistory.push([...pos]);
             this.trailPoints.push(this.knightMesh.position.clone());
             this.updateTrailGeometry();
         } 
@@ -108,6 +115,7 @@ export class SimulationPanel {
                 cell.material = this.baseMat.clone();
                 cell.scale.set(1, 1, 1);
             }
+            this.pathHistory.pop();
             this.trailPoints.pop();
             this.updateTrailGeometry();
         }
@@ -124,6 +132,7 @@ export class SimulationPanel {
             mesh.scale.set(1, 1, 1);
         });
         this.trailPoints = [];
+        this.pathHistory = [];
         this.updateTrailGeometry();
         this.updateKnightPos(0, 0, 0);
     }

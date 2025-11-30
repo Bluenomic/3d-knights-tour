@@ -41,11 +41,10 @@ const totalSteps = computed(() => localDims[0] * localDims[1] * localDims[2]);
 
         <div class="flex-1 overflow-y-auto p-4 space-y-6">
             <div class="space-y-2">
-                <label class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Grid Dimensions</label>
                 <div class="grid grid-cols-3 gap-2">
                     <div v-for="(axis, idx) in ['x', 'y', 'z']" :key="axis">
                         <label class="block text-center text-[10px] text-gray-500 mb-1">{{ axis.toUpperCase() }}</label>
-                        <input type="number" v-model.number="localDims[idx]" @change="updateDims" :disabled="isRunning" min="2" max="8"
+                        <input type="number" v-model.number="localDims[idx]" @change="updateDims" :disabled="isRunning" min="2" max="25"
                             class="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-center text-sm text-white focus:border-blue-500 focus:outline-none disabled:opacity-50 transition-colors">
                     </div>
                 </div>
@@ -74,7 +73,7 @@ const totalSteps = computed(() => localDims[0] * localDims[1] * localDims[2]);
                         :class="isRunning ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'"
                         class="py-2.5 rounded-lg font-bold text-sm text-white transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2">
                     <span v-if="!isRunning">Start</span>
-                    <span v-else>■ Stop</span>
+                    <span v-else>Stop</span>
                 </button>
                 <button @click="$emit('reset-cam')" class="bg-gray-700 hover:bg-gray-600 text-white py-2.5 rounded-lg font-bold text-sm transition-colorsSJ border border-gray-600">
                     Reset Cam

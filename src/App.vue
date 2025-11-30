@@ -202,9 +202,6 @@ function updateSeparation(v) { separation.value = v; }
             <h1 class="text-3xl font-bold bg-black/50 p-2 rounded backdrop-blur-sm border-l-4 border-blue-500 text-white">
                 3D Knight's Tour
             </h1>
-            <p class="text-sm text-gray-300 bg-black/50 p-1 mt-1 rounded max-w-md">
-                Vue Component Architecture
-            </p>
         </div>
 
         <div ref="canvasRef" class="absolute inset-0 z-0"></div>
