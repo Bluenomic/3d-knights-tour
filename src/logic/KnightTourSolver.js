@@ -49,7 +49,7 @@ export class KnightTourSolver {
         return b;
     }
 
-    // --- Generator: Backtracking ---
+    // Backtracking
     *solveBacktracking(startPos) {
         const board = this.createBoard();
         const [sx, sy, sz] = startPos;
@@ -78,7 +78,7 @@ export class KnightTourSolver {
         yield* recursiveBt(this, sx, sy, sz, 0);
     }
 
-    // --- Generator: Warnsdorff ---
+    // Warnsdorff
     *solveWarnsdorff(startPos) {
         const board = this.createBoard();
         let curr = [...startPos];
@@ -101,7 +101,6 @@ export class KnightTourSolver {
                 return false;
             }
 
-            // Sort by degree (asc)
             moves.sort((a, b) => a.deg - b.deg);
             
             const best = moves[0].pos;
@@ -113,7 +112,6 @@ export class KnightTourSolver {
         return true;
     }
 
-    // --- Generator: Combined (Warnsdorff + Backtracking) ---
     *solveCombined(startPos) {
         const board = this.createBoard();
         const [sx, sy, sz] = startPos;
@@ -132,7 +130,6 @@ export class KnightTourSolver {
                 }
             }
             
-            // Heuristic sort
             possibleMoves.sort((a, b) => a.deg - b.deg);
 
             for (let { pos } of possibleMoves) {
@@ -141,7 +138,6 @@ export class KnightTourSolver {
                 
                 if (yield* recursiveWbt(self, nx, ny, nz, step + 1)) return true;
 
-                // Backtrack
                 board[nx][ny][nz] = -1;
                 yield { type: 'revert', pos: [nx, ny, nz], step: step + 1 };
                 yield { type: 'backtrack', pos: [cx, cy, cz], step: step };

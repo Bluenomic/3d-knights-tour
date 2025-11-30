@@ -5,12 +5,11 @@ export class SimulationPanel {
         this.scene = scene;
         this.offset = new THREE.Vector3(...offset);
         this.color = new THREE.Color(colorHex);
-        this.dims = dims; // [w, l, h]
+        this.dims = dims;
         
         this.group = new THREE.Group();
         this.scene.add(this.group);
         
-        // Materials
         this.boxGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
         this.baseMat = new THREE.MeshLambertMaterial({ 
             color: 0xffffff, transparent: true, opacity: 0.1 
@@ -19,7 +18,7 @@ export class SimulationPanel {
             color: this.color, transparent: true, opacity: 0.8 
         });
         
-        this.cells = new Map(); // "x,y,z" -> Mesh
+        this.cells = new Map();
         this.knightMesh = null;
         this.trailPoints = [];
         this.trailLine = null;
@@ -31,7 +30,6 @@ export class SimulationPanel {
     getKey(x, y, z) { return `${x},${y},${z}`; }
 
     getWorldPos(x, y, z) {
-        // Map Grid(x, y, z) -> World(x, z, y) 
         const yWorld = z * (1 + this.separation);
         const vec = new THREE.Vector3(x, yWorld, y);
         vec.add(this.offset);
@@ -39,12 +37,12 @@ export class SimulationPanel {
     }
 
     initBoard() {
-        // Clear old
+        // Bersihkan trail lama
         this.group.clear();
         this.cells.clear();
         this.trailPoints = [];
 
-        // Build Grid
+        // Grid
         const [w, l, h] = this.dims;
         for(let x=0; x<w; x++){
             for(let y=0; y<l; y++){
@@ -64,10 +62,10 @@ export class SimulationPanel {
         this.knightMesh = new THREE.Mesh(knightGeo, knightMat);
         this.group.add(this.knightMesh);
         
-        // Initial Pos
+        // Posisi awal
         this.updateKnightPos(0, 0, 0);
 
-        // Trail Line Init
+        // Trail line
         const lineGeo = new THREE.BufferGeometry();
         const lineMat = new THREE.LineBasicMaterial({ color: this.color });
         this.trailLine = new THREE.Line(lineGeo, lineMat);
@@ -81,13 +79,11 @@ export class SimulationPanel {
 
     updateSeparation(val) {
         this.separation = val;
-        // Re-position all cells
         this.cells.forEach((mesh, key) => {
             const [x,y,z] = mesh.userData.gridPos;
             mesh.position.copy(this.getWorldPos(x,y,z));
         });
         
-        // Update knight pos based on cached logic position
         const curr = this.knightMesh.userData.lastLogicPos || [0,0,0];
         this.updateKnightPos(...curr);
     }

@@ -7,25 +7,22 @@ import ControlPanel from './components/ControlPanel.vue';
 import { KnightTourSolver } from './logic/KnightTourSolver.js';
 import { SimulationPanel } from './logic/SimulationPanel.js';
 
-// --- Reactive State ---
 const canvasRef = ref(null);
 const isRunning = ref(false);
-const dimensions = ref([4, 4, 4]); // [Width, Length, Height]
+const dimensions = ref([4, 4, 4]);
 const speed = ref(50);
 const separation = ref(0.2);
 
 const stats = reactive([
-    { done: false, step: 0, ops: 0 }, // Backtracking
-    { done: false, step: 0, ops: 0 }, // Warnsdorff
-    { done: false, step: 0, ops: 0 }  // Combined
+    { done: false, step: 0, ops: 0 },
+    { done: false, step: 0, ops: 0 },
+    { done: false, step: 0, ops: 0 } 
 ]);
 
-// --- Three.js Globals ---
 let scene, camera, renderer, controls, animationId;
 let panels = []; 
 let solvers = [];
 
-// --- Computed ---
 const allFinished = computed(() => stats.every(s => s.done));
 const statusText = computed(() => {
     if (isRunning.value) return 'Running...';
@@ -33,7 +30,6 @@ const statusText = computed(() => {
     return 'Idle';
 });
 
-// --- Lifecycle ---
 onMounted(() => {
     initThree();
     rebuildBoards();
@@ -46,10 +42,10 @@ onBeforeUnmount(() => {
     window.removeEventListener('resize', onWindowResize);
 });
 
-// --- Three.js Setup ---
+// Three.js
 function initThree() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x111827); // Tailwind gray-900
+    scene.background = new THREE.Color(0x111827);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
@@ -81,18 +77,17 @@ function animateLoop() {
     renderer.render(scene, camera);
 }
 
-// --- Simulation Logic ---
 function rebuildBoards() {
     stopSimulation();
     
-    // Cleanup old panels
+    // Bersihkan panel lama
     panels.forEach(p => scene.remove(p.group));
     panels = [];
 
     const [w, l, h] = dimensions.value;
     const spacing = Math.max(w, l) * 2.5;
 
-    // Instantiate Visual Panels
+    // panel visual
     panels.push(new SimulationPanel(scene, [-spacing, 0, 0], 0xef4444, dimensions.value));
     panels.push(new SimulationPanel(scene, [0, 0, 0], 0x06b6d4, dimensions.value));
     panels.push(new SimulationPanel(scene, [spacing, 0, 0], 0x22c55e, dimensions.value));
@@ -124,7 +119,7 @@ function toggleSimulation() {
     } else {
         if (allFinished.value) rebuildBoards();
         
-        // Initialize Solvers
+        // Panggil solver
         const [w, l, h] = dimensions.value;
         const sLogic = new KnightTourSolver(w, l, h);
         const start = [0, 0, 0];
@@ -145,7 +140,7 @@ function toggleSimulation() {
 function logicLoop() {
     if (!isRunning.value) return;
 
-    // Logic Speed Control
+    // kontrol speed
     let stepsPerFrame = 1;
     let delayMs = 0;
 
@@ -173,7 +168,7 @@ function logicLoop() {
                     if (type === 'move') stats[idx].step = step + 1;
                     if (type === 'revert') stats[idx].step = step - 1;
                     
-                    // Win Check
+                    // Check complete
                     const total = dimensions.value[0] * dimensions.value[1] * dimensions.value[2];
                     if (stats[idx].step === total) stats[idx].done = true;
                 }
@@ -182,7 +177,6 @@ function logicLoop() {
         if (active === 0) isRunning.value = false;
     };
 
-    // Execute
     if (delayMs > 0) {
         stepFn();
         setTimeout(() => {
@@ -194,11 +188,9 @@ function logicLoop() {
     }
 }
 
-// --- Watchers ---
 watch(separation, (val) => panels.forEach(p => p.updateSeparation(val)));
 watch(dimensions, () => rebuildBoards(), { deep: true });
 
-// --- Props to pass down ---
 function updateDims(v) { dimensions.value = v; }
 function updateSpeed(v) { speed.value = v; }
 function updateSeparation(v) { separation.value = v; }
@@ -206,7 +198,6 @@ function updateSeparation(v) { separation.value = v; }
 
 <template>
     <div class="relative w-full h-screen font-sans">
-        <!-- Header -->
         <div class="absolute top-4 left-4 z-10 pointer-events-none">
             <h1 class="text-3xl font-bold bg-black/50 p-2 rounded backdrop-blur-sm border-l-4 border-blue-500 text-white">
                 3D Knight's Tour
@@ -216,10 +207,8 @@ function updateSeparation(v) { separation.value = v; }
             </p>
         </div>
 
-        <!-- Canvas -->
         <div ref="canvasRef" class="absolute inset-0 z-0"></div>
 
-        <!-- UI Component -->
         <ControlPanel 
             :isRunning="isRunning"
             :allFinished="allFinished"
