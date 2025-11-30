@@ -14,9 +14,9 @@ const speed = ref(50);
 const separation = ref(0.2);
 
 const stats = reactive([
-    { done: false, step: 0, ops: 0 },
-    { done: false, step: 0, ops: 0 },
-    { done: false, step: 0, ops: 0 } 
+    { done: false, step: 0, ops: 0, time: 0, startTime: 0 },
+    { done: false, step: 0, ops: 0, time: 0, startTime: 0 },
+    { done: false, step: 0, ops: 0, time: 0, startTime: 0 } 
 ]);
 
 let scene, camera, renderer, controls, animationId;
@@ -105,7 +105,7 @@ function resetCamera() {
 }
 
 function resetStats() {
-    stats.forEach(s => { s.done = false; s.step = 0; s.ops = 0; });
+    stats.forEach(s => { s.done = false; s.step = 0; s.ops = 0; s.time = 0; s.startTime = 0; });
 }
 
 function stopSimulation() {
@@ -132,6 +132,9 @@ function toggleSimulation() {
         panels.forEach(p => p.reset());
         resetStats();
         
+        const now = performance.now();
+        stats.forEach(s => s.startTime = now);
+
         isRunning.value = true;
         logicLoop();
     }
@@ -151,16 +154,22 @@ function logicLoop() {
         if (stepsPerFrame < 1) stepsPerFrame = 1;
     }
 
+    const now = performance.now();
+
     const stepFn = () => {
         let active = 0;
         solvers.forEach((gen, idx) => {
             if (stats[idx].done) return;
             active++;
+
+            stats[idx].time = now - stats[idx].startTime;
+
             try {
                 const res = gen.next();
                 stats[idx].ops++;
                 if (res.done) {
                     stats[idx].done = true;
+                    stats[idx].time = performance.now() - stats[idx].startTime;
                 } else {
                     const { type, pos, step } = res.value;
                     panels[idx].update(type, pos, step);
@@ -170,7 +179,10 @@ function logicLoop() {
                     
                     // Check complete
                     const total = dimensions.value[0] * dimensions.value[1] * dimensions.value[2];
-                    if (stats[idx].step === total) stats[idx].done = true;
+                    if (stats[idx].step === total) {
+                        stats[idx].done = true;
+                        stats[idx].time = performance.now() - stats[idx].startTime;
+                    }
                 }
             } catch(e) { console.error(e); stats[idx].done = true; }
         });
@@ -218,7 +230,7 @@ function updateSeparation(v) { separation.value = v; }
             @update:speed="updateSpeed"
             @update:separation="updateSeparation"
             @toggle-run="toggleSimulation"
-            @reset-cam="resetCamera"
+            @reset="rebuildBoards"
         />
     </div>
 </template>

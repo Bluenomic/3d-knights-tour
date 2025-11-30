@@ -34,6 +34,11 @@ const progress = computed(() => {
     if (!props.totalSteps) return 0;
     return (props.stats.step / props.totalSteps) * 100;
 });
+
+const formattedTime = computed(() => {
+    const ms = props.stats.time || 0;
+    return (ms / 1000).toFixed(2) + 's';
+});
 </script>
 
 <template>
@@ -43,7 +48,7 @@ const progress = computed(() => {
             <span v-if="stats.done" class="text-[10px] uppercase px-1.5 py-0.5 rounded font-bold" :class="colors.badge">Done</span>
         </div>
         <div class="grid grid-cols-2 gap-x-2 text-xs text-gray-300">
-            <div class="flex justify-between"><span>Moves:</span> <span class="text-white font-mono">{{ stats.step }}</span></div>
+            <div class="flex justify-between"><span>Time:</span> <span class="text-white font-mono">{{ formattedTime }}</span></div>
             <div class="flex justify-between"><span>Ops:</span> <span class="text-white font-mono">{{ stats.ops }}</span></div>
             <div class="col-span-2 mt-2 bg-gray-700 h-1.5 rounded-full overflow-hidden">
                 <div class="h-full transition-all duration-300 ease-out" :class="colors.bar" :style="{ width: progress + '%' }"></div>
