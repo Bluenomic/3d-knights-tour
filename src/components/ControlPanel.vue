@@ -81,6 +81,25 @@ const blockedSummary = computed(() => {
     if (!ignored) return `${active} applied`;
     return `${active} applied, ${ignored} ignored`;
 });
+
+const solverNames = ['Backtracking', 'Warnsdorff', 'Combined'];
+const perfRows = computed(() => {
+    return props.stats.map((s, idx) => ({
+        name: solverNames[idx],
+        done: !!s.done,
+        timeMs: s.time || 0,
+        ops: s.ops || 0,
+        step: s.step || 0
+    })).sort((a, b) => {
+        if (a.done !== b.done) return a.done ? -1 : 1; // selesai di atas
+        return a.timeMs - b.timeMs;
+    });
+});
+const bestTimeMs = computed(() => {
+    const done = perfRows.value.filter(r => r.done);
+    if (!done.length) return null;
+    return Math.min(...done.map(r => r.timeMs));
+});
 </script>
 
 <template>
@@ -164,6 +183,22 @@ const blockedSummary = computed(() => {
                 <StatsCard title="Backtracking" colorClass="red" :stats="stats[0]" :totalSteps="totalSteps" />
                 <StatsCard title="Warnsdorff" colorClass="cyan" :stats="stats[1]" :totalSteps="totalSteps" />
                 <StatsCard title="Combined" colorClass="green" :stats="stats[2]" :totalSteps="totalSteps" />
+                <div class="bg-gray-800 border border-gray-700 rounded p-2">
+                    <div class="flex justify-between items-center mb-1">
+                        <h4 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Performance</h4>
+                        <span v-if="bestTimeMs !== null" class="text-[10px] text-green-400 font-mono">
+                            Best: {{ (bestTimeMs/1000).toFixed(2) }}s
+                        </span>
+                    </div>
+                    <div class="space-y-1 text-xs text-gray-200">
+                        <div v-for="row in perfRows" :key="row.name" class="flex justify-between items-center">
+                            <span class="font-semibold">{{ row.name }}</span>
+                            <span class="font-mono">
+                                {{ (row.timeMs/1000).toFixed(2) }}s · {{ row.ops }} ops · step {{ row.step }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
