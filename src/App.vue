@@ -9,9 +9,17 @@ import { SimulationPanel } from './logic/SimulationPanel.js';
 
 const canvasRef = ref(null);
 const isRunning = ref(false);
+const isPaused = ref(false);
 const dimensions = ref([4, 4, 4]);
+const startPos = ref([0, 0, 0]);
+const blockedInput = ref('');
+const blockedList = ref([]);
+const blockedApplied = ref(0);
+const blockedRejected = ref(0);
+const availableCells = ref(dimensions.value[0] * dimensions.value[1] * dimensions.value[2]);
 const speed = ref(50);
 const separation = ref(0.2);
+const pauseStartedAt = ref(0);
 
 const stats = reactive([
     { done: false, step: 0, ops: 0, time: 0, startTime: 0 },
@@ -25,6 +33,7 @@ let solvers = [];
 
 const allFinished = computed(() => stats.every(s => s.done));
 const statusText = computed(() => {
+    if (isPaused.value) return 'Paused';
     if (isRunning.value) return 'Running...';
     if (allFinished.value) return 'Completed';
     return 'Idle';
@@ -94,6 +103,7 @@ function rebuildBoards() {
 
     resetStats();
     resetCamera();
+    applyConstraintsToPanels();
 }
 
 function resetCamera() {
@@ -106,38 +116,133 @@ function resetCamera() {
 
 function resetStats() {
     stats.forEach(s => { s.done = false; s.step = 0; s.ops = 0; s.time = 0; s.startTime = 0; });
+    pauseStartedAt.value = 0;
 }
 
 function stopSimulation() {
     isRunning.value = false;
+    isPaused.value = false;
     if (animationId) cancelAnimationFrame(animationId);
 }
 
-function toggleSimulation() {
+function clampStartWithinDims() {
+    const [w, l, h] = dimensions.value;
+    startPos.value = [
+        Math.min(Math.max(startPos.value[0], 0), w - 1),
+        Math.min(Math.max(startPos.value[1], 0), l - 1),
+        Math.min(Math.max(startPos.value[2], 0), h - 1),
+    ];
+}
+
+function parseBlocked() {
+    const [w, l, h] = dimensions.value;
+    const raw = blockedInput.value.trim();
+    if (!raw) {
+        blockedList.value = [];
+        blockedApplied.value = 0;
+        blockedRejected.value = 0;
+        availableCells.value = w * l * h;
+        return;
+    }
+
+    const unique = new Set();
+    let rejected = 0;
+    raw.split(/[\n;]+/).forEach(chunk => {
+        const parts = chunk.split(',').map(p => p.trim()).filter(Boolean);
+        if (parts.length !== 3) {
+            if (chunk.trim() !== '') rejected++;
+            return;
+        }
+        const coords = parts.map(Number);
+        if (coords.some(Number.isNaN)) {
+            rejected++;
+            return;
+        }
+        const [x, y, z] = coords;
+        if (x < 0 || x >= w || y < 0 || y >= l || z < 0 || z >= h) {
+            rejected++;
+            return;
+        }
+        unique.add(`${x},${y},${z}`);
+    });
+
+    blockedList.value = Array.from(unique).map(str => str.split(',').map(Number));
+    blockedApplied.value = blockedList.value.length;
+    blockedRejected.value = rejected;
+    availableCells.value = Math.max(1, w * l * h - blockedApplied.value);
+}
+
+function applyConstraintsToPanels() {
+    parseBlocked();
+    clampStartWithinDims();
+    panels.forEach(p => p.applyConstraints(startPos.value, blockedList.value));
+}
+
+function startSimulation() {
+    if (isRunning.value) return;
+    if (allFinished.value) rebuildBoards();
+    applyConstraintsToPanels();
+    
+    const [w, l, h] = dimensions.value;
+    const sLogic = new KnightTourSolver(w, l, h);
+    sLogic.setBlockedTiles(blockedList.value);
+    const start = [...startPos.value];
+    const startKeyBlocked = blockedList.value.some(([x, y, z]) => x === start[0] && y === start[1] && z === start[2]);
+    if (startKeyBlocked) {
+        console.warn('Start posisi berada pada tile terblokir');
+        return;
+    }
+
+    solvers = [
+        sLogic.solveBacktracking(start),
+        sLogic.solveWarnsdorff(start),
+        sLogic.solveCombined(start)
+    ];
+
+    panels.forEach(p => p.reset());
+    resetStats();
+    
+    const now = performance.now();
+    stats.forEach(s => s.startTime = now);
+
+    isPaused.value = false;
+    isRunning.value = true;
+    logicLoop();
+}
+
+function toggleRun() {
     if (isRunning.value) {
         stopSimulation();
+    } else if (isPaused.value) {
+        resumeSimulation();
     } else {
-        if (allFinished.value) rebuildBoards();
-        
-        // Panggil solver
-        const [w, l, h] = dimensions.value;
-        const sLogic = new KnightTourSolver(w, l, h);
-        const start = [0, 0, 0];
-        solvers = [
-            sLogic.solveBacktracking(start),
-            sLogic.solveWarnsdorff(start),
-            sLogic.solveCombined(start)
-        ];
-
-        panels.forEach(p => p.reset());
-        resetStats();
-        
-        const now = performance.now();
-        stats.forEach(s => s.startTime = now);
-
-        isRunning.value = true;
-        logicLoop();
+        startSimulation();
     }
+}
+
+function togglePause() {
+    if (isRunning.value && !isPaused.value) {
+        pauseSimulation();
+    } else if (isPaused.value) {
+        resumeSimulation();
+    }
+}
+
+function pauseSimulation() {
+    if (!isRunning.value || isPaused.value) return;
+    pauseStartedAt.value = performance.now();
+    isRunning.value = false;
+    isPaused.value = true;
+}
+
+function resumeSimulation() {
+    if (!isPaused.value) return;
+    const delta = performance.now() - pauseStartedAt.value;
+    stats.forEach(s => { s.startTime += delta; });
+    pauseStartedAt.value = 0;
+    isPaused.value = false;
+    isRunning.value = true;
+    logicLoop();
 }
 
 function logicLoop() {
@@ -176,9 +281,10 @@ function logicLoop() {
                     
                     if (type === 'move') stats[idx].step = step + 1;
                     if (type === 'revert') stats[idx].step = step - 1;
+                    if (type === 'stuck') stats[idx].done = true;
                     
                     // Check complete
-                    const total = dimensions.value[0] * dimensions.value[1] * dimensions.value[2];
+                    const total = availableCells.value;
                     if (stats[idx].step === total) {
                         stats[idx].done = true;
                         stats[idx].time = performance.now() - stats[idx].startTime;
@@ -201,11 +307,15 @@ function logicLoop() {
 }
 
 watch(separation, (val) => panels.forEach(p => p.updateSeparation(val)));
-watch(dimensions, () => rebuildBoards(), { deep: true });
+watch(dimensions, () => { rebuildBoards(); }, { deep: true });
+watch(startPos, () => applyConstraintsToPanels(), { deep: true });
+watch(blockedInput, () => applyConstraintsToPanels());
 
 function updateDims(v) { dimensions.value = v; }
 function updateSpeed(v) { speed.value = v; }
 function updateSeparation(v) { separation.value = v; }
+function updateStart(v) { startPos.value = v; }
+function updateBlocked(raw) { blockedInput.value = raw; }
 </script>
 
 <template>
@@ -220,16 +330,25 @@ function updateSeparation(v) { separation.value = v; }
 
         <ControlPanel 
             :isRunning="isRunning"
+            :isPaused="isPaused"
             :allFinished="allFinished"
             :statusText="statusText"
             :dims="dimensions"
             :speed="speed"
             :separation="separation"
             :stats="stats"
+            :start="startPos"
+            :blockedRaw="blockedInput"
+            :blockedCount="blockedApplied"
+            :blockedRejected="blockedRejected"
+            :availableCells="availableCells"
             @update:dims="updateDims"
             @update:speed="updateSpeed"
             @update:separation="updateSeparation"
-            @toggle-run="toggleSimulation"
+            @update:start="updateStart"
+            @update:blocked="updateBlocked"
+            @toggle-run="toggleRun"
+            @toggle-pause="togglePause"
             @reset="rebuildBoards"
         />
     </div>

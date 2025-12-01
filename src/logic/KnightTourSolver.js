@@ -2,6 +2,20 @@ export class KnightTourSolver {
     constructor(width, length, height) {
         this.dims = [width, length, height];
         this.totalCells = width * length * height;
+        this.blockedSet = new Set();
+        this.activeCells = this.totalCells;
+    }
+
+    setBlockedTiles(blockedCoords = []) {
+        this.blockedSet = new Set();
+        blockedCoords.forEach(([x, y, z]) => {
+            this.blockedSet.add(this.getKey(x, y, z));
+        });
+        this.activeCells = Math.max(1, this.totalCells - this.blockedSet.size);
+    }
+
+    getKey(x, y, z) {
+        return `${x},${y},${z}`;
     }
 
     isValid(x, y, z, board) {
@@ -9,7 +23,8 @@ export class KnightTourSolver {
             x >= 0 && x < this.dims[0] &&
             y >= 0 && y < this.dims[1] &&
             z >= 0 && z < this.dims[2] &&
-            board[x][y][z] === -1
+            board[x][y][z] === -1 &&
+            !this.blockedSet.has(this.getKey(x, y, z))
         );
     }
 
@@ -40,36 +55,47 @@ export class KnightTourSolver {
 
     createBoard() {
         const b = new Array(this.dims[0]);
-        for(let i=0; i<this.dims[0]; i++){
+        for (let i = 0; i < this.dims[0]; i++) {
             b[i] = new Array(this.dims[1]);
-            for(let j=0; j<this.dims[1]; j++){
+            for (let j = 0; j < this.dims[1]; j++) {
                 b[i][j] = new Array(this.dims[2]).fill(-1);
+                for (let k = 0; k < this.dims[2]; k++) {
+                    if (this.blockedSet.has(this.getKey(i, j, k))) {
+                        b[i][j][k] = -2; // blocked sentinel
+                    }
+                }
             }
         }
         return b;
     }
 
-    // Backtracking
+    // Backtracking (klasik, exhaustive DFS)
     *solveBacktracking(startPos) {
         const board = this.createBoard();
         const [sx, sy, sz] = startPos;
+
+        if (this.blockedSet.has(this.getKey(sx, sy, sz))) {
+            yield { type: 'stuck', pos: startPos, step: 0 };
+            return false;
+        }
+
         board[sx][sy][sz] = 0;
 
         function* recursiveBt(self, cx, cy, cz, step) {
             yield { type: 'move', pos: [cx, cy, cz], step: step };
 
-            if (step === self.totalCells - 1) return true;
+            if (step === self.activeCells - 1) return true;
 
             const moves = self.getKnightMoves(cx, cy, cz);
             for (let [nx, ny, nz] of moves) {
                 if (self.isValid(nx, ny, nz, board)) {
-                    board[nx][ny][nz] = step + 1;
-                    if (yield* recursiveBt(self, nx, ny, nz, step + 1)) return true;
-                    
-                    // Backtrack
-                    board[nx][ny][nz] = -1;
-                    yield { type: 'revert', pos: [nx, ny, nz], step: step + 1 };
-                    yield { type: 'backtrack', pos: [cx, cy, cz], step: step };
+                board[nx][ny][nz] = step + 1;
+                if (yield* recursiveBt(self, nx, ny, nz, step + 1)) return true;
+                
+                // Backtrack
+                board[nx][ny][nz] = -1;
+                yield { type: 'revert', pos: [nx, ny, nz], step: step + 1 };
+                yield { type: 'backtrack', pos: [cx, cy, cz], step: step };
                 }
             }
             return false;
@@ -82,12 +108,18 @@ export class KnightTourSolver {
     *solveWarnsdorff(startPos) {
         const board = this.createBoard();
         let curr = [...startPos];
+
+        if (this.blockedSet.has(this.getKey(curr[0], curr[1], curr[2]))) {
+            yield { type: 'stuck', pos: curr, step: 0 };
+            return false;
+        }
+
         board[curr[0]][curr[1]][curr[2]] = 0;
         let step = 0;
 
         yield { type: 'move', pos: curr, step: step };
 
-        while (step < this.totalCells - 1) {
+        while (step < this.activeCells - 1) {
             let moves = [];
             for (let [nx, ny, nz] of this.getKnightMoves(curr[0], curr[1], curr[2])) {
                 if (this.isValid(nx, ny, nz, board)) {
@@ -115,12 +147,18 @@ export class KnightTourSolver {
     *solveCombined(startPos) {
         const board = this.createBoard();
         const [sx, sy, sz] = startPos;
+
+        if (this.blockedSet.has(this.getKey(sx, sy, sz))) {
+            yield { type: 'stuck', pos: startPos, step: 0 };
+            return false;
+        }
+
         board[sx][sy][sz] = 0;
 
         function* recursiveWbt(self, cx, cy, cz, step) {
             yield { type: 'move', pos: [cx, cy, cz], step: step };
 
-            if (step === self.totalCells - 1) return true;
+            if (step === self.activeCells - 1) return true;
 
             let possibleMoves = [];
             for (let [nx, ny, nz] of self.getKnightMoves(cx, cy, cz)) {
